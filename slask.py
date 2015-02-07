@@ -11,6 +11,7 @@ import traceback
 
 from slackclient import SlackClient
 
+
 def init_log(config):
     loglevel = config.get("loglevel", logging.INFO)
     logformat = config.get("logformat", '%(asctime)s:%(levelname)s:%(message)s')
@@ -70,21 +71,24 @@ def run_hook(hooks, hook, data, server):
     return responses
 
 def handle_message(client, event, hooks, config):
-    # ignore bot messages and edits
-    subtype = event.get("subtype", "")
-    if subtype == "bot_message" or subtype == "message_changed": return
-
-    botname = client.server.login_data["self"]["name"]
     try:
-        msguser = client.server.users.get(event["user"])
-    except KeyError:
-        logging.debug("event {0} has no user".format(event))
-        return
+        # ignore bot messages and edits
+        subtype = event.get("subtype", "")
+        if subtype == "bot_message" or subtype == "message_changed": return
 
-    if msguser["name"] == botname or msguser["name"].lower() == "slackbot":
-        return
+        botname = client.server.login_data["self"]["name"]
+        try:
+            msguser = client.server.users.get(event["user"])
+        except KeyError:
+            logging.debug("event {0} has no user".format(event))
+            return
 
-    return "\n".join(run_hook(hooks, "message", event, {"client": client, "config": config, "hooks": hooks}))
+        if msguser["name"] == botname or msguser["name"].lower() == "slackbot":
+            return
+
+        return "\n".join(run_hook(hooks, "message", event, {"client": client, "config": config, "hooks": hooks}))
+    except Exception as e:
+        logging.error("Fatal error caught in handle_message entrypoint: " + e.message)
 
 event_handlers = {
     "message": handle_message
